@@ -3,8 +3,8 @@
 #include <time.h>
 #include <math.h>
 
-#define DDD 123 // Semente ficticia (ultimos 3 digitos da matricula)
-#define R 100000 // Repeticoes para as pesquisas
+#define DDD 123 // SEMENTE - Substituir pelos 3 ultimos digitos da matricula
+#define R 100000 // Repeticoes
 
 long long comp_seq = 0;
 long long comp_bin = 0;
@@ -15,7 +15,7 @@ int PesquisaSequencial(int *V, int N, int Chave) {
         comp_seq++;
         if (V[i] == Chave) return i;
     }
-    return -1; // ERRO
+    return -1;
 }
 
 int PesquisaBinaria(int *V, int N, int Chave) {
@@ -26,39 +26,56 @@ int PesquisaBinaria(int *V, int N, int Chave) {
         int Meio = Esquerda + (Direita - Esquerda) / 2;
         comp_bin++;
         if (V[Meio] == Chave) return Meio;
-        
-        comp_bin++;
         if (V[Meio] < Chave) 
             Esquerda = Meio + 1;
         else 
             Direita = Meio - 1;
     }
-    return -1; // ERRO
+    return -1;
 }
 
 int cmpfunc(const void *a, const void *b) {
-    return (*(int*)a - *(int*)b);
+    long long diff = (long long)(*(int*)a) - (long long)(*(int*)b);
+    if (diff > 0) return 1;
+    if (diff < 0) return -1;
+    return 0;
 }
 
-void gerar_vetor(int N, double *tempos) {
+void verificar_ordenacao(int *V, int N) {
+    for (int i = 0; i < N - 1; i++) {
+        if (V[i] > V[i+1]) {
+            printf("  [!] ERRO: Vetor nao ordenado na posicao %d\n", i);
+            return;
+        }
+    }
+    printf("  [+] ORDENACAO: OK\n");
+}
+
+void medir_geracao(int N, FILE *csv) {
+    double tempos[4];
+    double soma = 0;
     for (int i = 0; i < 4; i++) {
         clock_t inicio = clock();
         int *V = (int *) malloc(N * sizeof(int));
-        if (V == NULL) {
-            printf("ERRO: nao ha memoria para o vetor!\n");
-            exit(1);
-        }
+        if (!V) { printf("Erro alocacao\n"); exit(1); }
         srand(DDD);
         for (int j = 0; j < N; j++) V[j] = rand();
         free(V);
         clock_t fim = clock();
         tempos[i] = ((double)(fim - inicio)) / CLOCKS_PER_SEC;
+        soma += tempos[i];
     }
+    double media = soma / 4.0;
+    printf("Geracao N=%d: %.4fs %.4fs %.4fs %.4fs | Media: %.4fs\n", N, tempos[0], tempos[1], tempos[2], tempos[3], media);
+    fprintf(csv, "geracao,%d,%.6f,%.6f,%.6f,%.6f,%.6f\n", N, tempos[0], tempos[1], tempos[2], tempos[3], media);
 }
 
-void ordenar_vetor(int N, double *tempos) {
+void medir_ordenacao(int N, FILE *csv) {
+    double tempos[4];
+    double soma = 0;
     for (int i = 0; i < 4; i++) {
         int *V = (int *) malloc(N * sizeof(int));
+        if (!V) { printf("Erro alocacao\n"); exit(1); }
         srand(DDD);
         for (int j = 0; j < N; j++) V[j] = rand();
         
@@ -66,30 +83,33 @@ void ordenar_vetor(int N, double *tempos) {
         qsort(V, N, sizeof(int), cmpfunc);
         clock_t fim = clock();
         tempos[i] = ((double)(fim - inicio)) / CLOCKS_PER_SEC;
+        soma += tempos[i];
         
+        if (i == 0) verificar_ordenacao(V, N); // Verifica no 1o exp
         free(V);
     }
+    double media = soma / 4.0;
+    printf("Ordenacao N=%d: %.4fs %.4fs %.4fs %.4fs | Media: %.4fs\n", N, tempos[0], tempos[1], tempos[2], tempos[3], media);
+    fprintf(csv, "ordenacao,%d,%.6f,%.6f,%.6f,%.6f,%.6f\n", N, tempos[0], tempos[1], tempos[2], tempos[3], media);
 }
 
-void avaliar_pesquisas(int N) {
+void medir_pesquisas(int N, FILE *csv) {
     int *V = (int *) malloc(N * sizeof(int));
     srand(DDD);
     for (int j = 0; j < N; j++) V[j] = rand();
     qsort(V, N, sizeof(int), cmpfunc);
 
-    // Definir as 6 chaves
     int chaves[6];
-    chaves[0] = V[0];               // Inicio
-    chaves[1] = V[N / 4];           // 25%
-    chaves[2] = V[N / 2];           // Centro
-    chaves[3] = V[(3 * N) / 4];     // 75%
-    chaves[4] = V[N - 1];           // Final
-    chaves[5] = -1;                 // Nao existe (sendo rand() positivo, -1 nao existe)
+    chaves[0] = V[0];               
+    chaves[1] = V[N / 4];           
+    chaves[2] = V[N / 2];           
+    chaves[3] = V[(3 * N) / 4];     
+    chaves[4] = V[N - 1];           
+    chaves[5] = -1;                 
 
     const char* pos_nomes[] = {"Inicio", "25%", "Centro", "75%", "Final", "NaoExiste"};
 
     printf("\n--- Pesquisas para N = %d ---\n", N);
-    printf("Posicao\tT_Seq(s)\tT_Bin(s)\tComp_Seq\tComp_Bin\tAchou_Seq\tAchou_Bin\n");
     
     for (int c = 0; c < 6; c++) {
         int chave = chaves[c];
@@ -97,67 +117,45 @@ void avaliar_pesquisas(int N) {
 
         // Sequencial
         clock_t inicio = clock();
-        for (int r = 0; r < R; r++) {
-            achou_seq = PesquisaSequencial(V, N, chave);
-        }
+        for (int r = 0; r < R; r++) achou_seq = PesquisaSequencial(V, N, chave);
         clock_t fim = clock();
         double tempo_seq = ((double)(fim - inicio)) / CLOCKS_PER_SEC / R;
-        long long comps_seq = comp_seq; // Da ultima execucao
+        long long comps_seq = comp_seq;
 
         // Binaria
         inicio = clock();
-        for (int r = 0; r < R; r++) {
-            achou_bin = PesquisaBinaria(V, N, chave);
-        }
+        for (int r = 0; r < R; r++) achou_bin = PesquisaBinaria(V, N, chave);
         fim = clock();
         double tempo_bin = ((double)(fim - inicio)) / CLOCKS_PER_SEC / R;
-        long long comps_bin = comp_bin; // Da ultima execucao
+        long long comps_bin = comp_bin;
 
-        printf("%s\t%.9f\t%.9f\t%lld\t\t%lld\t\t%d\t\t%d\n", 
-               pos_nomes[c], tempo_seq, tempo_bin, comps_seq, comps_bin, achou_seq, achou_bin);
+        printf("Pos: %s\tChave: %d\tT_Seq: %.9fs\tT_Bin: %.9fs\tC_Seq: %lld\tC_Bin: %lld\tIdx_Seq: %d\tIdx_Bin: %d\n", 
+               pos_nomes[c], chave, tempo_seq, tempo_bin, comps_seq, comps_bin, achou_seq, achou_bin);
+               
+        fprintf(csv, "pesquisa,%d,%s,%d,%.9f,%.9f,%lld,%lld,%d,%d\n", 
+                N, pos_nomes[c], chave, tempo_seq, tempo_bin, comps_seq, comps_bin, achou_seq, achou_bin);
     }
     free(V);
 }
 
 int main() {
-    int tamanhos[] = {100000, 200000, 300000};
-    double tempos_ger[4];
-    double tempos_ord[4];
+    printf("RAND_MAX do sistema: %d\n\n", RAND_MAX);
+    FILE *csv = fopen("resultados.csv", "w");
+    if (!csv) return 1;
+    fprintf(csv, "tipo,tamanho,val1,val2,val3,val4,val5,val6,val7,val8\n"); // Header genérico
 
-    printf("=== TEMPOS DE GERACAO DO VETOR ===\n");
-    for (int i = 0; i < 3; i++) {
-        gerar_vetor(tamanhos[i], tempos_ger);
-        double soma = 0;
-        printf("N=%d: ", tamanhos[i]);
-        for(int t=0; t<4; t++) {
-            printf("%.4f ", tempos_ger[t]);
-            soma += tempos_ger[t];
-        }
-        printf("| Medio: %.4f\n", soma / 4.0);
-    }
-
-    printf("\n=== TEMPOS DE ORDENACAO ===\n");
-    for (int i = 0; i < 3; i++) {
-        ordenar_vetor(tamanhos[i], tempos_ord);
-        double soma = 0;
-        printf("N=%d: ", tamanhos[i]);
-        for(int t=0; t<4; t++) {
-            printf("%.4f ", tempos_ord[t]);
-            soma += tempos_ord[t];
-        }
-        printf("| Medio: %.4f\n", soma / 4.0);
-    }
-
-    for (int i = 0; i < 3; i++) {
-        avaliar_pesquisas(tamanhos[i]);
-    }
+    int tamanhos[] = {100000, 200000, 300000, 500000};
     
-    // Estimativa de 500.000 para ordenacao
-    printf("\nLimite teorico log2(N):\n");
-    printf("100.000: %.2f\n", ceil(log2(100000)));
-    printf("200.000: %.2f\n", ceil(log2(200000)));
-    printf("300.000: %.2f\n", ceil(log2(300000)));
-    printf("500.000: %.2f\n", ceil(log2(500000)));
+    printf("=== TEMPOS DE GERACAO E ORDENACAO ===\n");
+    for (int i = 0; i < 4; i++) {
+        medir_geracao(tamanhos[i], csv);
+        medir_ordenacao(tamanhos[i], csv);
+    }
 
+    for (int i = 0; i < 4; i++) {
+        medir_pesquisas(tamanhos[i], csv);
+    }
+
+    fclose(csv);
     return 0;
 }
