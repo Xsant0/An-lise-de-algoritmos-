@@ -1,6 +1,6 @@
 # Comparando algoritmos de pesquisa: Uma análise empírica entre Pesquisa Sequencial e Pesquisa Binária
 
-**Autores:** [Seu Nome], Marcelo Eustáquio (Professor)
+**Autores:** Marcelo Henrique / Leonardo Silva, Marcelo Eustáquio (Professor)
 **Instituição:** Universidade Católica de Brasília – UCB
 **Disciplina:** Análise de Algoritmos – 1° semestre de 2026
 
